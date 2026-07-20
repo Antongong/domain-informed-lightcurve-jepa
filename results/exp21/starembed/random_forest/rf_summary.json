@@ -1,0 +1,49 @@
+{
+  "emb_dir": "/home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP21_lejepa_mean_pooling_no_group_no_starembed_overlap_starembed_features",
+  "scenario": "concat",
+  "standardize": false,
+  "best_params": {
+    "max_depth": null,
+    "min_samples_split": 10,
+    "n_estimators": 100
+  },
+  "best_cv_score_macro_f1": 0.8010401323181241,
+  "seeds": [
+    42,
+    100,
+    200
+  ],
+  "test_metrics_mean_std": {
+    "macro_f1_mean": 0.7737498142811156,
+    "macro_f1_std": 0.000745087004221646,
+    "accuracy_mean": 0.9051868610692141,
+    "accuracy_std": 0.000884812807187146,
+    "precision_macro_mean": 0.8500006898679503,
+    "precision_macro_std": 0.003103126137520308,
+    "recall_macro_mean": 0.7338107944158062,
+    "recall_macro_std": 0.0013449364258054939
+  },
+  "per_seed": [
+    {
+      "seed": 42,
+      "macro_f1": 0.7743232470204582,
+      "accuracy": 0.9063599798893917,
+      "precision_macro": 0.8456127760730964,
+      "recall_macro": 0.7356540381156291
+    },
+    {
+      "seed": 100,
+      "macro_f1": 0.7726975176505457,
+      "accuracy": 0.9042232277526395,
+      "precision_macro": 0.8522558606097365,
+      "recall_macro": 0.7324828223702691
+    },
+    {
+      "seed": 200,
+      "macro_f1": 0.7742286781723429,
+      "accuracy": 0.9049773755656109,
+      "precision_macro": 0.8521334329210177,
+      "recall_macro": 0.7332955227615204
+    }
+  ]
+}

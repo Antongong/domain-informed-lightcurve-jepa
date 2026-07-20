@@ -1,0 +1,140 @@
+cd /home/rui/code/algorithm_base/timeseries/clip_experiments
+  export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+  export PYTHONUNBUFFERED=1
+  export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+    --standalone \
+    --nproc_per_node=8 \
+    train_ddp_numeric.py \
+    --config configs/raw_aligned_clip_lejepa_all.yaml
+
+
+/home/rui/miniconda3/envs/timeseries/bin/python extract_starembed_embeddings.py \
+--config runs/EXP001_small_raw_aligned_clip_lejepa_pretrain/config_used.yaml \
+--ckpt /home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP001_small_raw_aligned_clip_lejepa_pretrain/ckpt_final.pt \
+--out_dir runs/EXP001_small_raw_aligned_clip_lejepa_starembed_features \
+--out_info embeddings \
+--repr_mode concat \
+--batch_size 256 \
+--num_workers 8 \
+--num_gpus 8 \
+--save_y_str
+
+/home/rui/miniconda3/envs/timeseries/bin/python run_starembed_benchmarks.py \
+--features_dir runs/EXP001_small_raw_aligned_clip_lejepa_starembed_features \
+--out_dir runs/EXP001_small_raw_aligned_clip_lejepa_starembed_features/benchmark \
+--feature_keys x \
+--benchmarks clustering,logistic_knn,rf,bootstrap_linear,mlp,ood \
+--seed 42 \
+--seeds 42 \
+--mlp_accelerator auto \
+--mlp_devices 1 \
+--mlp_num_workers 8
+
+
+---------------------------
+
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+--standalone \
+--nproc_per_node=8 \
+train_ddp_numeric.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/configs/raw_aligned_clip_only.yaml
+
+
+
+/home/rui/miniconda3/envs/timeseries/bin/python extract_starembed_embeddings.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP2_clip_only/config_used.yaml \
+--ckpt /home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP2_clip_only/ckpt_final.pt \
+--out_dir runs/EXP2_clip_only_starembed_features \
+--out_info embeddings \
+--repr_mode concat \
+--batch_size 256 \
+--num_workers 8 \
+--num_gpus 8 \
+--save_y_str
+
+/home/rui/miniconda3/envs/timeseries/bin/python run_starembed_benchmarks.py \
+--features_dir runs/EXP2_clip_only_starembed_features \
+--out_dir runs/EXP2_clip_only_starembed_features/benchmark \
+--feature_keys x \
+--benchmarks clustering,logistic_knn,rf,bootstrap_linear,mlp,ood \
+--seed 42 \
+--seeds 42 \
+--mlp_accelerator auto \
+--mlp_devices 1 \
+--mlp_num_workers 8
+
+---------------------------------------
+
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+--standalone \
+--nproc_per_node=8 \
+train_ddp_numeric.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/configs/raw_aligned_lejepa_only.yaml
+
+/home/rui/miniconda3/envs/timeseries/bin/python extract_starembed_embeddings.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP3_lejepa_only/config_used.yaml \
+--ckpt /home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP3_lejepa_only/ckpt_final.pt \
+--out_dir runs/EXP3_lejepa_only_starembed_features \
+--out_info embeddings \
+--repr_mode concat \
+--batch_size 256 \
+--num_workers 8 \
+--num_gpus 8 \
+--save_y_str
+
+
+/home/rui/miniconda3/envs/timeseries/bin/python run_starembed_benchmarks.py \
+--features_dir runs/EXP3_lejepa_only_starembed_features \
+--out_dir runs/EXP3_lejepa_only_starembed_features/benchmark \
+--feature_keys x \
+--benchmarks clustering,logistic_knn,rf,bootstrap_linear,mlp,ood \
+--seed 42 \
+--seeds 42 \
+--mlp_accelerator auto \
+--mlp_devices 1 \
+--mlp_num_workers 8
+
+----------------------------------
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+--standalone \
+--nproc_per_node=8 \
+train_ddp_numeric.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/configs/exp4_no_crope.yaml
+
+----------------------------------
+
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+--standalone \
+--nproc_per_node=8 \
+train_ddp_numeric.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/configs/exp5_no_erroraware_numeric_embedding.yaml
+
+----------------------------------
+
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+--standalone \
+--nproc_per_node=8 \
+train_ddp_numeric.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/configs/exp6_no_gls_branch.yaml
+
+
+----------------------------------
+
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+--standalone \
+--nproc_per_node=8 \
+train_ddp_numeric.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/configs/exp7_no_periodogram_numeric_branch.yaml
+----------------------------------
+
+/home/rui/miniconda3/envs/timeseries/bin/python -m torch.distributed.run \
+--standalone \
+--nproc_per_node=8 \
+train_ddp_numeric.py \
+--config /home/rui/code/algorithm_base/timeseries/clip_experiments/configs/exp8_no_group_branch.yaml
+
+
+
+

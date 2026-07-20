@@ -1,0 +1,2 @@
+best_val_loss=0.4166930019855499
+log_dir=/home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP21_lejepa_mean_pooling_no_group_no_starembed_overlap_starembed_features/benchmark/x/mlp/EXP21_lejepa_mean_pooling_no_group_no_starembed_overlap_starembed_features_concat_bs64_lr0.0001_do0.1_s42/version_0

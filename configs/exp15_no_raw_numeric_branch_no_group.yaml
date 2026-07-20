@@ -1,0 +1,142 @@
+modalities:
+  raw: false
+  periodogram: true
+  phase_folded: true
+  group: false
+data:
+  precomputed:
+    out_dir: /home/rui/data/timeseries/aligned_leaves
+    manifest: null
+    prefer_manifest_all: true
+    allow_discovery_fallback: true
+dataloader:
+  batch_size: 128
+  batch_size_eval: 128
+  num_workers: 8
+  pin_memory: true
+  persistent_workers: true
+  shuffle: true
+  drop_last: true
+model:
+  common_dim: 128
+  use_projection: false
+  projection_dim: 128
+  projection_hidden_dim: 256
+  projection_dropout: 0.0
+  numeric:
+    model_size: gpt2
+    pooling:
+      mode: attn_stats
+      dropout: 0.0
+    group_fusion:
+      enabled: false
+      num_layers: 1
+      num_heads: 4
+      dropout: 0.1
+      use_best_period: true
+      use_best_power: true
+      use_time_span: true
+      use_mag_std: true
+      use_valid_fraction: true
+    forecast_aux:
+      enabled: false
+      horizon: 16
+      min_context: 32
+      max_samples_per_batch: 4
+      quantiles:
+      - 0.1
+      - 0.5
+      - 0.9
+      weight: 0.2
+      hidden_dim: 512
+      dropout: 0.1
+    raw:
+      rope_max_period: 1000.0
+      embed_dim: 256
+      depth: 4
+      heads: 4
+      position_mode: time
+      use_uncertainty: true
+      num_bins: 2048
+      vmin: -4.0
+      vmax: 4.0
+    periodogram:
+      rope_max_period: 10.0
+      embed_dim: 256
+      depth: 4
+      heads: 4
+      position_mode: time
+      num_bins: 2048
+      vmin: -6.0
+      vmax: 0.0
+    phase_folded:
+      rope_max_period: 1000.0
+      embed_dim: 256
+      depth: 4
+      heads: 4
+      position_mode: time
+      use_uncertainty: true
+      use_normalized_phase: true
+    inference:
+      min_period: 0.0069444444
+      max_period: 2000.0
+      k_periods: 1000000
+      chunk_size: 8192
+      k_top: 500
+      k_rand: 500
+      min_valid_points: 8
+  ablations: {}
+loss:
+  views_order:
+  - periodogram
+  - phase_folded
+  lejepa:
+    enabled: true
+    weight: 1
+    lamb: 0.02
+    align_to: null
+  sigreg:
+    knots: 17
+    max_t: 3.0
+    proj_dim: 256
+    refresh_every: 0
+  clip:
+    enabled: true
+    weight: 1.0
+    temperature: 0.2
+    symmetric: true
+    pairs:
+    - - periodogram
+      - phase_folded
+split:
+  test_ratio: 0.1
+  seed: 1234
+probe:
+  enabled: true
+  repr_mode: concat
+  use_projection_features: false
+  train_on_embeddings: true
+  train_on_projections: 'false'
+  lr: 0.001
+  weight_decay: 0.0
+  eval_max_batches: 0
+  supervised: false
+training:
+  output_dir: /home/rui/code/algorithm_base/timeseries/clip_experiments/runs/EXP15_no_raw_numeric_branch_no_group
+  seed: 1234
+  max_steps: 10000
+  log_every: 10
+  save_every: 10000
+  eval_every: 2000000
+  grad_accum_steps: 1
+  grad_clip_norm: 1.0
+  ddp_find_unused_parameters: true
+  optimizer:
+    lr: 0.0002
+    weight_decay: 0.01
+    betas:
+    - 0.9
+    - 0.999
+    eps: 1.0e-08
+  amp:
+    enabled: true

@@ -1,0 +1,338 @@
+\section{Model Parameters and Experimental Details}
+\label{app:model_parameters_experimental_details}
+\providecommand{\modelappendixfigdir}{runs/appendix_figures/mean_pooling_model}
+
+This appendix reports the configuration used for the no-overlap LEAVES pretraining
+of the mean-pooling model.  The LEAVES manifest excludes duplicated StarEmbed
+targets and contains 1,056,785 light curves.
+The active pretraining views are raw light curve, periodogram, and phase-folded
+light curve.  The group-fusion branch and projection head are disabled.
+
+\subsection{LEAVES--StarEmbed Deduplication}
+\label{app:leaves_starembed_deduplication}
+
+The LEAVES pretraining set and the StarEmbed benchmark are both derived from
+ZTF light curves, so target-level deduplication is required before using
+StarEmbed as a downstream evaluation benchmark.  The filtering is performed at
+the astronomical-source level rather than by removing all ZTF targets.  In
+particular, only LEAVES light curves whose target is crossmatched to a
+StarEmbed source are removed; all other ZTF light curves remain in the LEAVES
+pretraining corpus.
+
+We first construct the set of StarEmbed evaluation targets from the preprocessed
+StarEmbed splits used in this work: train, validation, test, and anomaly.  Each
+StarEmbed preprocessed file name contains the Pan-STARRS source identifier, and
+these identifiers are collected from the split manifests.  The resulting
+Pan-STARRS source set contains 40,716 unique StarEmbed targets.  We then query
+the StarEmbed crossmatch table, which provides Pan-STARRS source identifier,
+Gaia source identifier, right ascension, and declination.  Restricting this
+table to the collected StarEmbed sources gives 41,045 catalog rows, 40,589
+unique Gaia identifiers, and 40,590 unique coordinate entries with valid
+coordinates.
+
+LEAVES targets are matched to this StarEmbed source catalog in two passes.  The
+first pass checks whether a LEAVES target name explicitly contains a Gaia
+identifier of the form \texttt{GaiaID<source\_id>}.  If that Gaia identifier is
+present in the StarEmbed crossmatch table, the LEAVES target is removed.  The
+second pass is a positional crossmatch for LEAVES target names that encode sky
+coordinates.  We parse the target coordinate string as
+\texttt{JHHMMSS.s+DDMMSS.s} or \texttt{JHHMMSS.s-DDMMSS.s}, convert the right
+ascension and declination to degrees, and represent both LEAVES and StarEmbed
+positions as three-dimensional unit vectors on the celestial sphere.  A
+\texttt{cKDTree} is built over the StarEmbed unit vectors, and a LEAVES target
+is removed if it has any StarEmbed neighbor within 2 arcsec.  The chord radius
+used by the tree query is
+\[
+    r = 2\sin\left(\frac{\theta}{2}\right),
+    \qquad \theta = 2~\mathrm{arcsec},
+\]
+with $\theta$ converted to radians.  This spherical-vector query avoids
+right-ascension wrap-around issues and applies the same angular threshold over
+the full sky.
+
+The final no-overlap manifest is written by scanning the original LEAVES
+manifest and retaining only targets that fail both the Gaia-identifier match and
+the 2-arcsec positional match.  In our run, the original LEAVES manifest
+contains 1,099,827 light curves.  The coordinate parser is applicable to
+965,231 LEAVES target names; 43,042 light curves are removed by the positional
+crossmatch, and no additional light curves are removed by the Gaia-identifier
+pass.  The resulting no-overlap LEAVES manifest contains 1,056,785 light
+curves.  This manifest is used for all final LEAVES pretraining and for the
+re-pretraining of comparison models.
+
+\begin{table*}[t]
+    \centering
+    \caption{Backbone parameterization for the no-overlap full model.}
+    \label{tab:appendix_model_parameters}
+    \begin{tabular}{l l l}
+        \specialrule{2pt}{1pt}{1pt}
+        Component & Setting & Value \\
+        \specialrule{2pt}{1pt}{1pt}
+        Raw-view encoder & Transformer depth & 4 layers \\
+        Raw-view encoder & Hidden width & 256 \\
+        Raw-view encoder & Attention heads & 4 \\
+        Raw-view encoder & Position encoding & C-RoPE over observation time \\
+        Raw-view encoder & Numeric embedding & Error-aware Gaussian embedding, 2,048 bins \\
+        Raw-view encoder & Pooling & Masked mean pooling \\
+        Raw-view encoder & Output dimension & 128 \\
+        Raw-view encoder & Parameters & 3,713,664 \\
+        \hline
+        Periodogram-view encoder & Transformer depth & 4 layers \\
+        Periodogram-view encoder & Hidden width & 256 \\
+        Periodogram-view encoder & Attention heads & 4 \\
+        Periodogram-view encoder & Position encoding & C-RoPE over $\log_{10} P$ \\
+        Periodogram-view encoder & Numeric embedding & Log-power embedding, 2,048 bins \\
+        Periodogram-view encoder & Pooling & Masked mean pooling \\
+        Periodogram-view encoder & Output dimension & 128 \\
+        Periodogram-view encoder & Parameters & 3,713,664 \\
+        \hline
+        Phase-folded-view encoder & Transformer depth & 4 layers \\
+        Phase-folded-view encoder & Hidden width & 256 \\
+        Phase-folded-view encoder & Attention heads & 4 \\
+        Phase-folded-view encoder & Position encoding & C-RoPE over normalized phase \\
+        Phase-folded-view encoder & Numeric embedding & Error-aware Gaussian embedding \\
+        Phase-folded-view encoder & Pooling & Masked mean pooling \\
+        Phase-folded-view encoder & Output dimension & 128 \\
+        Phase-folded-view encoder & Parameters & 3,713,664 \\
+        \hline
+        Backbone & Enabled views & Raw, periodogram, phase-folded \\
+        Backbone & Disabled components & Group fusion and projection head \\
+        Backbone & Concatenated representation & 384 dimensions \\
+        Backbone & Total parameters & 11,140,992 \\
+        \specialrule{2pt}{1pt}{1pt}
+    \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+    \centering
+    \caption{Pretraining and detached-probe optimization settings for the no-overlap full model.}
+    \label{tab:appendix_training_details}
+    \begin{tabular}{l l}
+        \specialrule{2pt}{1pt}{1pt}
+        Setting & Value \\
+        \specialrule{2pt}{1pt}{1pt}
+        Pretraining objective & LeJEPA only, weight 1.0, $\lambda=0.02$; CLIP loss disabled \\
+        Regularization & SIGReg with 17 knots, maximum $t=3.0$, projection dimension 256 \\
+        Views in loss & Raw, periodogram, phase-folded \\
+        Numeric value bins & 2,048 bins for raw magnitudes and periodogram log-power values \\
+        Raw magnitude range & $[-4, 4]$ with error-aware Gaussian numeric embedding \\
+        Periodogram log-power range & $[-6, 0]$ \\
+        Batch size & 128 per process; 8 DDP processes; effective global batch size 1,024 \\
+        Training length & 10,000 optimizer steps; gradient accumulation 1 \\
+        Backbone optimizer & AdamW, learning rate $2\times10^{-4}$, weight decay 0.01 \\
+        Backbone AdamW parameters & $\beta_1=0.9$, $\beta_2=0.999$, $\epsilon=10^{-8}$ \\
+        Backbone gradient clipping & Global norm 1.0 \\
+        Mixed precision & Enabled \\
+        Data split & Test ratio 0.1, seed 1234 \\
+        Logging and checkpoints & Log every 10 steps; save every 10,000 steps \\
+        Detached-probe features & Concatenated detached embeddings from the three active views, dimension 384 \\
+        Detached-probe optimizer & AdamW, learning rate $10^{-3}$, weight decay 0 \\
+        Detached-probe losses & Cross-entropy for 7-class and 10-class labels; labels $<0$ ignored \\
+        \specialrule{2pt}{1pt}{1pt}
+    \end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.92\textwidth]{\modelappendixfigdir/detached_probe_training_curves.pdf}
+    \caption{Training curves for the detached embedding probes during no-overlap pretraining.
+    The pale traces show batch-level logged values every 10 steps, and the solid traces show
+    a moving average.  The probes are optimized on detached concatenated embeddings and do not
+    backpropagate into the backbone.  At the final logged step, the 7-class probe reaches
+    90.92\% batch accuracy with loss 0.270, and the 10-class probe reaches 89.45\% batch
+    accuracy with loss 0.317.}
+    \label{fig:appendix_detached_probe_training_curves}
+\end{figure*}
+
+\subsection{Model Training Details}
+\label{app:model_training_details}
+
+All LEAVES pretraining experiments in the final comparison use the no-overlap
+LEAVES manifest, which removes duplicated StarEmbed targets before pretraining.
+This prevents the frozen StarEmbed evaluation split from appearing in the
+self-supervised pretraining corpus.  Unless otherwise stated, models are trained
+for 10,000 optimizer steps with seed 1234, batch size 128 per process, eight DDP
+processes, gradient accumulation 1, gradient clipping at global norm 1.0, and
+AdamW with learning rate $2\times10^{-4}$, weight decay 0.01, betas
+$(0.9,0.999)$, and $\epsilon=10^{-8}$.  The detached probes use concatenated
+frozen embeddings, learning rate $10^{-3}$, and no weight decay.
+
+\begin{itemize}
+    \item \textbf{Our model}: Our main model uses three numeric views: the raw
+    light curve, the Lomb--Scargle periodogram, and the phase-folded light
+    curve.  The group branch and projection head are disabled.  Each view
+    encoder has width 256, four transformer blocks, four attention heads, and a
+    128-dimensional output embedding.  The raw and phase-folded views use
+    time/phase C-RoPE and error-aware numeric embeddings; the periodogram view
+    uses C-RoPE over periodogram coordinates.  The final sequence
+    representation is obtained by masked mean pooling over valid transformer
+    tokens.  The pretraining objective is LeJEPA with weight 1.0 and
+    $\lambda=0.02$, together with SIGReg using 17 knots, maximum $t=3.0$, and
+    projection dimension 256.  CLIP loss is disabled for the main model.  The
+    three 128-dimensional view embeddings are concatenated for detached
+    probing and StarEmbed extraction, giving a 384-dimensional representation.
+    The backbone has 11,140,992 trainable parameters.
+
+    \item \textbf{Astromer-2}: Astromer-2 is re-pretrained on the same
+    no-overlap LEAVES manifest rather than using the original public checkpoint.
+    To make the comparison size-matched, its encoder is resized to match the
+    encoder scale used by our model: $d_{\mathrm{model}}=256$, four
+    transformer layers, four attention heads, feed-forward dimension 1024,
+    dropout 0.1, and RoPE base 10000.  The Astromer-2 masking configuration
+    uses probed fraction 0.5, masked fraction 0.3, and random fraction 0.1.
+    The input sequence length is capped at 1000 for LEAVES pretraining, with
+    period search range $[0.006944444,2000]$ over 1000 grid points.  The model
+    uses the shared 10,000-step AdamW training recipe above, with batch size
+    128, train fraction 0.9, point-drop augmentation probability 0.1, and
+    maximum dropped-point fraction 0.10.  StarEmbed extraction uses sequence
+    length 200, z-score normalization, batch size 256, and the final
+    checkpoint.
+
+    \item \textbf{FALCO}: FALCO is also re-pretrained from scratch on the same
+    no-overlap LEAVES manifest and is resized to the encoder scale used by our
+    model:
+    $d_{\mathrm{model}}=256$, four transformer layers, four attention heads,
+    feed-forward dimension 1024, dropout 0.1, and RoPE base 10000.  Error bars
+    are included in the input representation, the Huber loss uses
+    $\delta=1.0$, the maximum accepted error bar is 5.0, and times are
+    normalized to start at zero.  It uses the same 10,000-step AdamW recipe,
+    batch size 128, train fraction 0.9, mixed precision, gradient clipping at
+    1.0, and point-drop augmentation probability 0.1 with maximum dropped-point
+    fraction 0.10.  StarEmbed features are extracted from the final
+    checkpoint with sequence length 200, batch size 256, and mean pooling.
+
+    \item \textbf{Ablation models}: The ablation suite is trained with the same
+    no-overlap data, masked mean pooling, encoder size, optimizer, and training
+    length as the main model unless the ablated component changes the active
+    views or objective.  We train one-component ablations that remove C-RoPE,
+    remove the error-aware numeric embedding, remove the raw-view branch, remove
+    the phase-folded-view branch, remove the GLS periodogram branch, or replace
+    the LeJEPA objective with the symmetric CLIP objective.  These ablations
+    isolate whether the gains come from temporal rotary encoding, uncertainty
+    modeling, individual time-series views, or the multi-view predictive loss.
+\end{itemize}
+
+\section{Domain-specific adaption for PYRREGULAR dataset}
+\label{app:pyrregularadaption}
+
+To further test whether the proposed framework can be adapted beyond
+astronomical light curves, we evaluate a general irregular-time-series variant
+on PYRREGULAR.  PYRREGULAR differs from StarEmbed and LEAVES in both data
+semantics and observation structure: each sample can contain multiple sensor or
+clinical channels, the time axis is not necessarily astronomical observing
+time, and the target labels describe heterogeneous domains such as clinical
+state, human activity, animal movement, or trajectory type.  We therefore use a
+domain-adapted configuration instead of assuming that the astronomy-optimized
+model is universally optimal.
+
+The domain-adapted PYRREGULAR run is initialized from the three-view LEAVES
+model trained with attention-statistics pooling and a combined LeJEPA--CLIP
+objective.  The three active self-supervised views are the raw sequence, the
+periodogram, and the phase-folded sequence.  The raw and phase-folded views use
+error-aware numeric embeddings and C-RoPE over time or phase, and the
+periodogram view uses C-RoPE over periodogram coordinates.  Unlike the
+astronomy-facing no-overlap model used for the main StarEmbed benchmark, this
+variant uses attention-statistics pooling and keeps the symmetric CLIP term
+between raw--periodogram and raw--phase-folded embeddings.  In the stored run
+used here, the group-view fusion branch is disabled; the architecture supports
+such metadata-level fusion, but it is not part of the reported PYRREGULAR
+numbers.
+
+\begin{table*}[t]
+    \centering
+    \caption{Experimental differences between the PYRREGULAR-adapted variant
+    and the no-overlap astronomy model used for the main StarEmbed experiments.}
+    \label{tab:pyrregular_adaptation_setup}
+    \begin{tabular}{l l l}
+        \specialrule{2pt}{1pt}{1pt}
+        Setting & PYRREGULAR-adapted variant & Astronomy no-overlap model \\
+        \specialrule{2pt}{1pt}{1pt}
+        Source pretraining data & Original LEAVES manifest & No-overlap LEAVES manifest \\
+        Active views & Raw, periodogram, phase-folded & Raw, periodogram, phase-folded \\
+        Encoder scale per view & 4 layers, width 256, 4 heads & 4 layers, width 256, 4 heads \\
+        View output dimension & 128 & 128 \\
+        Pooling & Attention-statistics pooling & Masked mean pooling \\
+        Group-view fusion & Disabled in reported run & Disabled \\
+        Pretraining objective & LeJEPA + symmetric CLIP + SIGReg & LeJEPA + SIGReg \\
+        CLIP pairs & Raw--periodogram, raw--phase-folded & Not used \\
+        Projection head & Disabled & Disabled \\
+        Trainable parameters & 12,126,339 & 11,140,992 \\
+        PYRREGULAR SFT length & 30 epochs & 10 epochs \\
+        PYRREGULAR SFT hardware & 1 GPU & 8 GPUs \\
+        SFT mode & Full-model fine-tuning & Full-model fine-tuning \\
+        SFT value scaling & None & None \\
+        SFT time strategy & Relative time & Relative time \\
+        Maximum points per series & 1000 & 1000 \\
+        Downstream heads & Logistic, MLP, $k$-NN & Logistic, $k$-NN \\
+        \specialrule{2pt}{1pt}{1pt}
+    \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+    \caption{PYRREGULAR macro-F1 comparison between the previous SOTA, the
+    astronomy-facing no-overlap model, and the PYRREGULAR-adapted variant.
+    The detailed meaning of dataset and previous SOTA method names follows the
+    original PYRREGULAR paper \cite{spinnato2026pyrregularunifiedframeworkirregular}.
+    For the PYRREGULAR-adapted variant, only Linear and $k$-NN heads are
+    considered here.}
+    \label{tab:PYRREGULAR_domain_adaptation}
+    \centering
+    \begin{tabular}{l|lc|lc|lc}
+        \hline
+        Dataset
+        & Prev. SOTA & Prev. F1
+        & No-overlap head & No-overlap F1
+        & Adapted head & Adapted F1 \\
+        \hline
+        ABF & NCDE   & 0.41 & Linear & 0.37 & Linear & 0.55 \\
+        AN  & ROCKET & 0.90 & $k$-NN & 0.58 & $k$-NN & 0.52 \\
+        PGE & BRITS  & 0.78 & Linear & 0.78 & $k$-NN & 0.78 \\
+        GS  & NCDE   & 0.52 & Linear & 0.20 & Linear & 0.20 \\
+        LPA & BORF   & 0.73 & Linear & 0.82 & Linear & 0.77 \\
+        MI3 & RIFC   & 0.56 & Linear & 0.69 & Linear & 0.61 \\
+        PAM & ROCKET & 0.66 & Linear & 0.49 & Linear & 0.74 \\
+        P12 & RIFC   & 0.63 & Linear & 0.58 & Linear & 0.61 \\
+        P19 & LGBM   & 0.75 & $k$-NN & 0.50 & $k$-NN & 0.57 \\
+        SE  & RIFC   & 0.82 & Linear & 0.67 & Linear & 0.67 \\
+        TA  & LGBM   & 0.77 & Linear & 0.35 & Linear & 0.36 \\
+        VE  & BORF   & 0.87 & Linear & 0.84 & $k$-NN & 0.64 \\
+        \hline
+    \end{tabular}
+\end{table*}
+
+For PYRREGULAR adaptation, each multivariate sample is decomposed into
+univariate channels.  During dataset-specific self-supervised fine-tuning, the
+non-test split channels are converted into the same raw, periodogram, and
+phase-folded views used by the source model.  The model is then fine-tuned with
+the original self-supervised objective of the source configuration, using
+dataset-specific value ranges, time spans, and periodogram bounds estimated
+from the training split.  During evaluation, each channel is encoded by the
+raw-view encoder, channel embeddings are averaged into one sample embedding,
+and lightweight classifiers are trained on the PYRREGULAR non-test split and
+evaluated on the official test split.  This protocol separates the
+self-supervised domain adaptation step from the supervised classifier used to
+measure representation quality.
+
+The comparison highlights that the domain-adapted configuration and the
+astronomy-facing configuration differ in more than only training length.  The
+PYRREGULAR-adapted variant keeps the contrastive alignment term and uses a
+richer attention-statistics pooling operator, whereas the astronomy-facing
+model removes CLIP and uses masked mean pooling because that combination gives
+stronger StarEmbed performance after removing duplicated StarEmbed targets from
+LEAVES.  The PYRREGULAR run also evaluates an MLP head in addition to logistic
+regression and $k$-NN, while the 10-epoch no-overlap run evaluates only
+logistic regression and $k$-NN.
+
+With dataset-specific adaptation, the attention-statistics/LeJEPA--CLIP variant
+obtains a mean best-head macro F1 of 58.74 across the 12 PYRREGULAR datasets,
+compared with 57.26 for the 10-epoch no-overlap mean-pooling model.  The gains
+are concentrated on several heterogeneous non-astronomical tasks: for example,
+the adapted variant reaches macro F1 73.85 on PAMAP2, 60.78 on PhysioNet 2012,
+58.82 on PhysioNet 2019, and 55.47 on ABF, while the corresponding no-overlap
+mean-pooling values are 49.17, 58.00, 49.80, and 36.87.  Conversely, the
+astronomy-facing model remains stronger on some individual datasets, including
+MIMIC-III, LDFPA, Animals, and Vehicles.  This contrast supports our central
+claim that time-series representation learning is domain-dependent: the
+self-supervised multi-view framework is reusable, but the optimal choice of
+pooling mechanism, objective terms, and adaptation protocol depends on the
+semantics of the target domain.

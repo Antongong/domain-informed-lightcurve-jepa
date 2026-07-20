@@ -1,0 +1,32 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local environments and editors
+.env
+.venv/
+venv/
+*.swp
+.DS_Store
+
+# Large local data and generated experiment artifacts
+data/
+logs/
+runs/
+sin_injection_recovery_single_freq/
+sin_injection_recovery_single_freq/injection/
+Domain_Informed_Multi_View_Self_Distillation_for_Astronomical_Light_Curve_Representation_Learning_with_JEPA_Architecture.pdf
+
+# Model/data artifacts should be released through Hugging Face or another
+# artifact store, not committed to git.
+*.ckpt
+*.pt
+*.pth
+*.npz
+*.npy
+*.pkl
+jepa-env/

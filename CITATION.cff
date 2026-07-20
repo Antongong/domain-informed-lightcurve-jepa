@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: "Domain-Informed Multi-View Self-Distillation for Astronomical Light-Curve Representation Learning with JEPA"
+message: "If you use this code or checkpoint, please cite the associated paper."
+type: software
+authors:
+  - family-names: Rui
+    given-names: Yicheng
+repository-code: "https://github.com/ruiyicheng/domain-informed-lightcurve-jepa"
+license: MIT
+date-released: 2026-06-26
