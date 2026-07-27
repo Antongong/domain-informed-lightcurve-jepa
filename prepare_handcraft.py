@@ -117,7 +117,8 @@ def calc_FATS_features(lc: Optional[Dict[str, Any]]) -> np.ndarray:
     if len(mag) == 0 or len(mjd) == 0 or len(err) == 0:
         return np.full(len(FATS_feature_names), -1.0, dtype=np.float64)
 
-    lc_2darr = np.array([mag, mjd, err], dtype=object)
+    lc_2darr = np.empty(3, dtype=object)
+    lc_2darr[0], lc_2darr[1], lc_2darr[2] = mag, mjd, err
     fs = _FATS_FS.calculateFeature(lc_2darr)
     return np.asarray(fs.result(), dtype=np.float64)
 
@@ -283,6 +284,7 @@ def main() -> None:
     parser.add_argument("--num_workers", type=int, default=4, help="Process workers for CPU parallelism (0/1 = single process)")
     parser.add_argument("--out_dir", type=str, required=True, help="Output directory")
     parser.add_argument("--save_format", type=str, choices=["npz", "arrow"], default="npz", help="Output format per split")
+    parser.add_argument("--limit", type=int, default=None, help="If set, only process the first N rows of each split (for smoke testing)")
     args = parser.parse_args()
 
     base_dir = Path(args.base_dir)
@@ -293,6 +295,8 @@ def main() -> None:
         split_dir = base_dir / split
         print(f"\n=== Processing split: {split} ({split_dir}) ===")
         table = load_arrow_split(split_dir)
+        if args.limit is not None:
+            table = table.slice(0, args.limit)
 
         # Infer bands if not provided
         if args.bands is not None:
