@@ -1,6 +1,8 @@
 # model_numeric_only.py
 from __future__ import annotations
 
+from mtan_attention import multiTimeAttention
+
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -310,6 +312,41 @@ class NumericTransformer(nn.Module):
             pooled = x.mean(dim=1)
 
         assert self.out_proj is not None
+        return self.out_proj(pooled)
+# =========================================================
+# from mTan paper 
+# =========================================================
+class MTANRawEncoder(nn.Module):
+    def __init__(self, embed_dim, out_dim, num_ref_points=128,
+                 embed_time=128, num_heads=1, nhidden=128, time_scale=1.0):
+        super().__init__()
+        self.time_scale = float(time_scale)
+        self.embed_time = int(embed_time)
+        # fixed, non-learnable reference time points to start — simplest version
+        self.register_buffer("query_points", torch.linspace(0.0, 1.0, num_ref_points))
+        self.att = multiTimeAttention(
+            input_dim=embed_dim,   # NOT 2*embed_dim — see note below
+            nhidden=nhidden,
+            embed_time=embed_time,
+            num_heads=num_heads,
+        )
+        self.out_proj = nn.Identity() if nhidden == out_dim else nn.Linear(nhidden, out_dim)
+
+    def _time_embed(self, pos):
+        d_model = self.embed_time
+        position = self.time_scale * pos.unsqueeze(-1)
+        div_term = torch.exp(torch.arange(0, d_model, 2, device=pos.device) * -(math.log(10.0) / d_model))
+        pe = torch.zeros(*pos.shape, d_model, device=pos.device)
+        pe[..., 0::2] = torch.sin(position * div_term)
+        pe[..., 1::2] = torch.cos(position * div_term)
+        return pe
+
+    def forward(self, x, t, mask=None):
+        B = x.shape[0]
+        key = self._time_embed(t)                                      # (B, S, embed_time)
+        query = self._time_embed(self.query_points.unsqueeze(0).expand(B, -1))  # (B, R, embed_time)
+        out = self.att(query, key, x, mask=mask)                        # (B, R, nhidden)
+        pooled = out.mean(dim=1)                                        # (B, nhidden)
         return self.out_proj(pooled)
 
 # =========================================================
