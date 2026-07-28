@@ -345,7 +345,7 @@ class MTANRawEncoder(nn.Module):
         B = x.shape[0]
         key = self._time_embed(t)                                      # (B, S, embed_time)
         query = self._time_embed(self.query_points.unsqueeze(0).expand(B, -1))  # (B, R, embed_time)
-        out = self.att(query, key, x, mask=mask)                        # (B, R, nhidden)
+        out = self.att(query, key, x, mask=mask.unsqueeze(-1) if mask is not None else None)                       
         pooled = out.mean(dim=1)                                        # (B, nhidden)
         return self.out_proj(pooled)
 
@@ -667,6 +667,9 @@ class MultiModalAstroModel(nn.Module):
         raw_dropout: Optional[float] = None,
         raw_mlp_ratio: float = 4.0,
         raw_rope_max_period: float = 10000.0,
+        raw_encoder_type: str = "crope_transformer",
+        
+
 
         # periodogram
         per_embed_dim: Optional[int] = None,
@@ -739,6 +742,8 @@ class MultiModalAstroModel(nn.Module):
 
         self.common_dim = int(common_dim)
         self.use_projection = bool(use_projection)
+        #FOR MTAN
+        self.raw_encoder_type = str(raw_encoder_type).lower()
 
         self.raw_position_mode = str(raw_position_mode).lower()
         self.period_position_mode = str(period_position_mode).lower()
@@ -783,6 +788,8 @@ class MultiModalAstroModel(nn.Module):
         self.forecast_weight = float(forecast_weight)
         self.forecast_max_samples_per_batch = int(forecast_max_samples_per_batch)
 
+        
+
         # preset
         preset = resolve_gpt2_preset(numeric_model_size)
 
@@ -817,19 +824,28 @@ class MultiModalAstroModel(nn.Module):
             vmax=float(raw_vmax),
         )
 
+        #FOR MTAN
+    
+        if raw_encoder_type == "mtan":
+            self.raw_encoder = MTANRawEncoder(
+                embed_dim=raw_ed,
+                out_dim=self.common_dim,
+                #MOre later
+            )
+        else:
         # numeric encoders
-        self.raw_encoder = NumericTransformer(
-            embed_dim=raw_ed,
-            out_dim=self.common_dim,
-            depth=raw_dp,
-            num_heads=raw_hd,
-            mlp_ratio=float(raw_mlp_ratio),
-            dropout=float(raw_dr),
-            rope_max_period=float(raw_rope_max_period),
-            apply_final_norm=True,
-            pooling_mode=self.pooling_mode,
-            pooling_dropout=self.pooling_dropout,
-        )
+            self.raw_encoder = NumericTransformer(
+                embed_dim=raw_ed,
+                out_dim=self.common_dim,
+                depth=raw_dp,
+                num_heads=raw_hd,
+                mlp_ratio=float(raw_mlp_ratio),
+                dropout=float(raw_dr),
+                rope_max_period=float(raw_rope_max_period),
+                apply_final_norm=True,
+                pooling_mode=self.pooling_mode,
+                pooling_dropout=self.pooling_dropout,
+            )
         self.periodogram_encoder = NumericTransformer(
             embed_dim=per_ed,
             out_dim=self.common_dim,

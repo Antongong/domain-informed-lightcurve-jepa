@@ -1,3 +1,8 @@
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class multiTimeAttention(nn.Module):
     
     def __init__(self, input_dim, nhidden=16, 
@@ -12,7 +17,7 @@ class multiTimeAttention(nn.Module):
         self.linears = nn.ModuleList([nn.Linear(embed_time, embed_time), 
                                       nn.Linear(embed_time, embed_time),
                                       nn.Linear(input_dim*num_heads, nhidden)])
-        
+         
     def attention(self, query, key, value, mask=None, dropout=None):
         "Compute 'Scaled Dot Product Attention'"
         dim = value.size(-1)
