@@ -117,7 +117,7 @@ def calc_FATS_features(lc: Optional[Dict[str, Any]]) -> np.ndarray:
     if len(mag) == 0 or len(mjd) == 0 or len(err) == 0:
         return np.full(len(FATS_feature_names), -1.0, dtype=np.float64)
 
-    lc_2darr = np.array([mag, mjd, err], dtype=object)
+    lc_2darr = np.array([mag, mjd, err], dtype=np.float64)
     fs = _FATS_FS.calculateFeature(lc_2darr)
     return np.asarray(fs.result(), dtype=np.float64)
 

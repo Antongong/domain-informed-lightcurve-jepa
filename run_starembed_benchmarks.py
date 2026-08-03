@@ -43,6 +43,7 @@ def build_commands(
     mlp_accelerator: str,
     mlp_devices: str,
     mlp_num_workers: int,
+    test_features_dir: Path = None,
 ) -> Dict[str, List[str]]:
     my_star_embed_dir = repo_root / "my_star_embed"
     python = sys.executable
@@ -79,6 +80,8 @@ def build_commands(
             "--seeds",
             str(seed),
         ]
+        if test_features_dir is not None:
+            commands["logistic_knn"] += ["--test_emb_dir", str(test_features_dir)]
 
     if "rf" in benchmarks:
         commands["rf"] = [
@@ -93,6 +96,8 @@ def build_commands(
             "--seed",
             str(seed),
         ]
+        if test_features_dir is not None:
+            commands["rf"] += ["--test_emb_dir", str(test_features_dir)]
 
     if "bootstrap_linear" in benchmarks:
         commands["bootstrap_linear"] = [
@@ -127,6 +132,8 @@ def build_commands(
             "--num_workers",
             str(mlp_num_workers),
         ]
+        if test_features_dir is not None:
+            commands["mlp"] += ["--test_emb_dir", str(test_features_dir)]
 
     if "ood" in benchmarks:
         commands["ood"] = [
@@ -150,6 +157,13 @@ def parse_args() -> argparse.Namespace:
         description="Run the StarEmbed benchmarks one by one using the implementations under my_star_embed."
     )
     parser.add_argument("--features_dir", required=True, help="Directory produced by extract_starembed_embeddings.py")
+    parser.add_argument(
+        "--test_features_dir",
+        default="",
+        help="Optional: evaluate on test data from a different directory than --features_dir "
+        "(train/validation still come from --features_dir). Only supported for "
+        "logistic_knn, rf, and mlp.",
+    )
     parser.add_argument(
         "--feature_keys",
         default="",
@@ -188,8 +202,20 @@ def main() -> None:
         raise KeyError(f"Unsupported feature keys: {unknown}. Supported keys: {sorted(FEATURE_TO_SCENARIO)}")
 
     benchmarks = [name.strip() for name in args.benchmarks.split(",") if name.strip()]
+
+    test_features_dir = Path(args.test_features_dir).resolve() if args.test_features_dir.strip() else None
+    if test_features_dir is not None:
+        unsupported = sorted(set(benchmarks) & {"clustering", "bootstrap_linear", "ood"})
+        if unsupported:
+            raise ValueError(
+                f"--test_features_dir is not supported for: {unsupported} "
+                "(only logistic_knn, rf, and mlp accept --test_emb_dir). "
+                "Remove these from --benchmarks or drop --test_features_dir."
+            )
+
     manifest: Dict[str, object] = {
         "features_dir": str(features_dir),
+        "test_features_dir": str(test_features_dir) if test_features_dir else None,
         "feature_keys": feature_keys,
         "benchmarks": benchmarks,
         "seed": int(args.seed),
@@ -213,6 +239,7 @@ def main() -> None:
             mlp_accelerator=args.mlp_accelerator,
             mlp_devices=args.mlp_devices,
             mlp_num_workers=int(args.mlp_num_workers),
+            test_features_dir=test_features_dir,
         )
 
         for benchmark_name, command in commands.items():
