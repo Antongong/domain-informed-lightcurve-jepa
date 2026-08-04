@@ -8,7 +8,7 @@ RUNS_DIR = os.path.join(REPO_ROOT, "runs")
 PCT_TO_FEATURES_DIR = {
     100: os.path.join(RUNS_DIR, "handcrafted_features"),
     50:  os.path.join(RUNS_DIR, "handcrafted_features_pct50_fixed"),
-    25:  os.path.joiyes n(RUNS_DIR, "handcrafted_features_pct25_fixed"),
+    25:  os.path.join(RUNS_DIR, "handcrafted_features_pct25_fixed"),
 }
 
 # (train_pct, test_pct) -> benchmark output dir containing x/rf, x/logistic_knn, x/mlp
